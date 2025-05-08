@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor de Formatos de Imagem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+    <style>
+        .drag-area {
+            border: 2px dashed #ccc;
+            transition: all 0.3s ease;
+        }
+        .drag-area.active {
+            border-color: #5D5CDE;
+            background-color: rgba(93, 92, 222, 0.1);
+        }
+        .dark .drag-area {
+            border-color: #444;
+        }
+        .dark .drag-area.active {
+            border-color: #5D5CDE;
+            background-color: rgba(93, 92, 222, 0.2);
+        }
+        .preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 16px;
+        }
+        .preview-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+        .preview-item:hover {
+            transform: translateY(-5px);
+        }
+        .dark .preview-item {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .progress-bar {
+            height: 4px;
+            width: 0%;
+            background-color: #5D5CDE;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            transition: width 0.3s ease;
+        }
+        .format-selector {
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .format-selector.selected {
+            border-color: #5D5CDE;
+            background-color: rgba(93, 92, 222, 0.1);
+        }
+        .dark .format-selector.selected {
+            background-color: rgba(93, 92, 222, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-[#181818] text-gray-800 dark:text-gray-200 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <h1 class="text-3xl font-bold text-center mb-6 text-primary">Conversor de Formatos de Imagem</h1>
+        <p class="text-center mb-4">
+            Arraste e solte suas imagens para convertê-las para diferentes formatos
+        </p>
+        
+        <!-- Seletor de formato de saída -->
+        <div class="mb-8">
+            <h3 class="text-lg font-medium mb-3">Selecione o formato de saída:</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                <div class="format-selector selected rounded-lg p-3 text-center cursor-pointer bg-gray-50 dark:bg-gray-900" data-format="image/jpeg" data-extension="jpg">
+                    <p class="font-medium">JPG</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Fotos, imagens com gradientes</p>
+                </div>
+                <div class="format-selector rounded-lg p-3 text-center cursor-pointer bg-gray-50 dark:bg-gray-900" data-format="image/png" data-extension="png">
+                    <p class="font-medium">PNG</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Transparência, gráficos</p>
+                </div>
+                <div class="format-selector rounded-lg p-3 text-center cursor-pointer bg-gray-50 dark:bg-gray-900" data-format="image/webp" data-extension="webp">
+                    <p class="font-medium">WEBP</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Web, tamanho reduzido</p>
+                </div>
+                <div class="format-selector rounded-lg p-3 text-center cursor-pointer bg-gray-50 dark:bg-gray-900" data-format="image/gif" data-extension="gif">
+                    <p class="font-medium">GIF</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Animações simples</p>
+                </div>
+                <div class="format-selector rounded-lg p-3 text-center cursor-pointer bg-gray-50 dark:bg-gray-900" data-format="image/bmp" data-extension="bmp">
+                    <p class="font-medium">BMP</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Sem compressão</p>
+                </div>
+                <div id="avif-format" class="format-selector rounded-lg p-3 text-center cursor-pointer bg-gray-50 dark:bg-gray-900" data-format="image/avif" data-extension="avif">
+                    <p class="font-medium">AVIF</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Alta compressão, moderno</p>
+                </div>
+            </div>
+
+            <!-- Opções de qualidade -->
+            <div class="mt-5">
+                <label for="quality" class="block text-sm font-medium mb-2">Qualidade: <span id="quality-value">90</span>%</label>
+                <input type="range" id="quality" min="10" max="100" value="90" class="w-full max-w-md h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Menor qualidade = menor tamanho de arquivo</p>
+            </div>
+        </div>
+        
+        <!-- Área de arrastar e soltar -->
+        <div class="drag-area flex flex-col items-center justify-center p-10 rounded-lg mb-8 cursor-pointer bg-gray-50 dark:bg-gray-900">
+            <i class="upload-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-primary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+            </i>
+            <h3 class="text-xl font-medium mb-2">Arraste suas imagens aqui</h3>
+            <p class="text-gray-500 dark:text-gray-400 text-center mb-4">ou</p>
+            <input type="file" id="file-input" multiple accept="image/*" class="hidden">
+            <button id="browse-btn" class="bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg transition-colors text-base">
+                Selecionar Arquivos
+            </button>
+            <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">Suporta: JPG, PNG, WEBP, GIF, BMP, AVIF e outros formatos</p>
+        </div>
+        
+        <!-- Controles -->
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <div class="stats text-sm text-gray-600 dark:text-gray-400">
+                <span id="total-files">0</span> arquivo(s) selecionado(s)
+            </div>
+            <div class="flex gap-3">
+                <button id="convert-all-btn" class="hidden bg-primary hover:bg-primary/90 text-white py-2 px-6 rounded-lg transition-colors text-base">
+                    Converter Tudo
+                </button>
+                <button id="download-all-btn" class="hidden bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg transition-colors text-base">
+                    Baixar Tudo
+                </button>
+                <button id="clear-btn" class="hidden bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded-lg transition-colors text-base">
+                    Limpar
+                </button>
+            </div>
+        </div>
+        
+        <!-- Área de visualização -->
+        <div id="preview-container" class="preview-container mb-8"></div>
+        
+        <!-- Canvas para processamento (invisível) -->
+        <canvas id="canvas" style="display: none;"></canvas>
+    </div>
+
+    <script>
+        // Verifica modo escuro
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Verificar suporte AVIF
+        (function checkAvifSupport() {
+            const img = new Image();
+            img.onload = function() {
+                // AVIF é suportado
+            };
+            img.onerror = function() {
+                // AVIF não é suportado, desabilitar opção
+                const avifFormat = document.getElementById('avif-format');
+                avifFormat.classList.add('opacity-50');
+                avifFormat.title = 'AVIF não é suportado pelo seu navegador';
+                avifFormat.style.cursor = 'not-allowed';
+                avifFormat.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    alert('O formato AVIF não é suportado pelo seu navegador. Por favor, escolha outro formato.');
+                };
+            };
+            img.src = "data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAADybWV0YQAAAAAAAAAoaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAGxpYmF2aWYAAAAADnBpdG0AAAAAAAEAAAAeaWxvYwAAAABEAAABAAEAAAABAAABGgAAAB0AAAAoaWluZgAAAAAAAQAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAamlwcnAAAABLaXBjbwAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQ0MAAAAABNjb2xybmNseAACAAIAAYAAAAAXaXBtYQAAAAAAAAABAAEEAQKDBAAAACVtZGF0EgAKCBgANogQEAwgMg8f8D///8WfhwB8+ErK";
+        })();
+        
+        // Elementos do DOM
+        const dragArea = document.querySelector('.drag-area');
+        const fileInput = document.getElementById('file-input');
+        const browseBtn = document.getElementById('browse-btn');
+        const previewContainer = document.getElementById('preview-container');
+        const totalFiles = document.getElementById('total-files');
+        const convertAllBtn = document.getElementById('convert-all-btn');
+        const downloadAllBtn = document.getElementById('download-all-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const formatSelectors = document.querySelectorAll('.format-selector');
+        const qualitySlider = document.getElementById('quality');
+        const qualityValue = document.getElementById('quality-value');
+
+        // Variáveis globais
+        let files = [];
+        let processedFiles = [];
+        let selectedFormat = {
+            mimeType: 'image/jpeg',
+            extension: 'jpg'
+        };
+        let quality = 0.9;
+
+        // Evento para o slider de qualidade
+        qualitySlider.addEventListener('input', function() {
+            quality = this.value / 100;
+            qualityValue.textContent = this.value;
+        });
+
+        // Evento para selecionar formato
+        formatSelectors.forEach(selector => {
+            selector.addEventListener('click', function() {
+                // Remover seleção anterior
+                formatSelectors.forEach(s => s.classList.remove('selected'));
+                
+                // Selecionar novo formato
+                this.classList.add('selected');
+                
+                // Atualizar formato selecionado
+                selectedFormat = {
+                    mimeType: this.dataset.format,
+                    extension: this.dataset.extension
+                };
+                
+                // Atualizar os nomes dos arquivos para download
+                updateFileNames();
+            });
+        });
+
+        // Atualizar nomes de arquivos baseado no formato selecionado
+        function updateFileNames() {
+            processedFiles = processedFiles.map(file => {
+                // Obter o nome do arquivo sem a extensão
+                const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
+                // Criar novo nome com a extensão selecionada
+                const newName = `${nameWithoutExt}.${selectedFormat.extension}`;
+                // Atualizar URL no DOM
+                const downloadLink = document.querySelector(`.preview-item[data-filename="${file.name}"] .download-link`);
+                if (downloadLink) {
+                    downloadLink.download = newName;
+                }
+                // Retornar objeto atualizado
+                return {
+                    ...file,
+                    name: newName
+                };
+            });
+        }
+
+        // Evento de clique no botão de navegação
+        browseBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Processar arquivos selecionados
+        fileInput.addEventListener('change', function() {
+            const selectedFiles = Array.from(this.files);
+            handleFiles(selectedFiles);
+        });
+
+        // Eventos de arrastar e soltar
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dragArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dragArea.addEventListener(eventName, () => {
+                dragArea.classList.add('active');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dragArea.addEventListener(eventName, () => {
+                dragArea.classList.remove('active');
+            });
+        });
+
+        dragArea.addEventListener('drop', function(e) {
+            const droppedFiles = Array.from(e.dataTransfer.files);
+            handleFiles(droppedFiles);
+        });
+
+        // Processar arquivos
+        function handleFiles(selectedFiles) {
+            const imageFiles = selectedFiles.filter(file => file.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) return;
+            
+            imageFiles.forEach(file => {
+                // Verificar duplicação pelo nome do arquivo
+                if (!files.some(f => f.name === file.name)) {
+                    files.push(file);
+                    createPreviewItem(file);
+                }
+            });
+            
+            updateUI();
+        }
+
+        // Criar elemento de visualização para cada arquivo
+        function createPreviewItem(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const previewId = `preview-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9]/g, '')}`;
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+                previewItem.dataset.filename = file.name;
+                previewItem.dataset.id = previewId;
+                
+                // Determinar o formato original
+                const fileExt = file.name.split('.').pop().toLowerCase();
+                const formatName = getFormatDisplayName(file.type, fileExt);
+                
+                previewItem.innerHTML = `
+                    <div class="relative">
+                        <img src="${e.target.result}" alt="${file.name}" class="w-full h-48 object-cover">
+                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition-opacity">
+                            <button class="convert-btn bg-primary hover:bg-primary/90 text-white py-1 px-3 rounded text-sm mr-2">
+                                Converter
+                            </button>
+                            <button class="remove-btn bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded text-sm">
+                                Remover
+                            </button>
+                        </div>
+                        <div class="progress-bar"></div>
+                    </div>
+                    <div class="p-3">
+                        <p class="text-sm font-medium truncate" title="${file.name}">${file.name}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Formato original: <span class="original-format">${formatName}</span>
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Converter para: <span class="target-format">${selectedFormat.extension.toUpperCase()}</span>
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 file-size">
+                            Tamanho: ${formatFileSize(file.size)}
+                        </p>
+                        <a class="download-link hidden text-primary hover:text-primary/90 text-sm mt-2 inline-block" href="#" download="${file.name.substring(0, file.name.lastIndexOf('.'))}.${selectedFormat.extension}">
+                            Baixar
+                        </a>
+                    </div>
+                `;
+                
+                previewContainer.appendChild(previewItem);
+                
+                // Adicionar eventos aos botões
+                const convertBtn = previewItem.querySelector('.convert-btn');
+                const removeBtn = previewItem.querySelector('.remove-btn');
+                
+                convertBtn.addEventListener('click', () => {
+                    convertImage(file, previewItem);
+                });
+                
+                removeBtn.addEventListener('click', () => {
+                    removeFile(previewItem);
+                });
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        // Obter nome de formato amigável
+        function getFormatDisplayName(mimeType, extension) {
+            const formatMap = {
+                'image/jpeg': 'JPEG',
+                'image/jpg': 'JPEG',
+                'image/png': 'PNG',
+                'image/webp': 'WEBP',
+                'image/gif': 'GIF',
+                'image/bmp': 'BMP',
+                'image/avif': 'AVIF',
+                'image/tiff': 'TIFF',
+                'image/svg+xml': 'SVG'
+            };
+            
+            if (formatMap[mimeType]) {
+                return formatMap[mimeType];
+            }
+            
+            // Se não encontrar pelo MIME type, tenta pela extensão
+            const extMap = {
+                'jpg': 'JPEG',
+                'jpeg': 'JPEG',
+                'png': 'PNG',
+                'webp': 'WEBP',
+                'gif': 'GIF',
+                'bmp': 'BMP',
+                'avif': 'AVIF',
+                'tiff': 'TIFF',
+                'tif': 'TIFF',
+                'svg': 'SVG',
+                'ico': 'ICO',
+                'heic': 'HEIC',
+                'heif': 'HEIF'
+            };
+            
+            return extMap[extension.toLowerCase()] || extension.toUpperCase();
+        }
+
+        // Formatar tamanho de arquivo
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Converter imagem
+        function convertImage(file, previewItem) {
+            const img = new Image();
+            const progressBar = previewItem.querySelector('.progress-bar');
+            const downloadLink = previewItem.querySelector('.download-link');
+            const fileSizeEl = previewItem.querySelector('.file-size');
+            const targetFormatEl = previewItem.querySelector('.target-format');
+            
+            // Atualizar formato alvo no elemento
+            targetFormatEl.textContent = selectedFormat.extension.toUpperCase();
+            
+            // Mostrar progresso
+            progressBar.style.width = '30%';
+            
+            img.onload = function() {
+                progressBar.style.width = '60%';
+                
+                // Configurar o canvas
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Limpar o canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Desenhar a imagem
+                ctx.drawImage(img, 0, 0);
+                
+                // Converter para o formato selecionado
+                canvas.toBlob(function(blob) {
+                    progressBar.style.width = '100%';
+                    
+                    // Atualizar tamanho de arquivo
+                    fileSizeEl.textContent = `Tamanho: ${formatFileSize(blob.size)}`;
+                    
+                    // Criar URL para download
+                    const url = URL.createObjectURL(blob);
+                    downloadLink.href = url;
+                    downloadLink.download = file.name.substring(0, file.name.lastIndexOf('.')) + '.' + selectedFormat.extension;
+                    downloadLink.classList.remove('hidden');
+                    
+                    // Adicionar aos arquivos processados
+                    const processedFile = {
+                        name: downloadLink.download,
+                        blob: blob,
+                        url: url,
+                        originalName: file.name
+                    };
+                    
+                    // Substituir se já existir ou adicionar
+                    const existingIndex = processedFiles.findIndex(f => f.originalName === file.name);
+                    if (existingIndex !== -1) {
+                        processedFiles[existingIndex] = processedFile;
+                    } else {
+                        processedFiles.push(processedFile);
+                    }
+                    
+                    updateUI();
+                    
+                    // Esconder a barra de progresso após um tempo
+                    setTimeout(() => {
+                        progressBar.style.width = '0%';
+                    }, 1000);
+                    
+                }, selectedFormat.mimeType, quality);
+            };
+            
+            img.onerror = function() {
+                alert(`Não foi possível processar a imagem: ${file.name}. O formato pode não ser suportado.`);
+                progressBar.style.width = '0%';
+            };
+            
+            img.src = URL.createObjectURL(file);
+        }
+
+        // Remover arquivo
+        function removeFile(previewItem) {
+            const filename = previewItem.dataset.filename;
+            
+            // Remover do array de arquivos
+            files = files.filter(file => file.name !== filename);
+            
+            // Remover do array de arquivos processados
+            processedFiles = processedFiles.filter(file => file.originalName !== filename);
+            
+            // Remover o elemento de visualização
+            previewItem.remove();
+            
+            updateUI();
+        }
+
+        // Atualizar a interface
+        function updateUI() {
+            totalFiles.textContent = files.length;
+            
+            // Mostrar/ocultar botões
+            convertAllBtn.classList.toggle('hidden', files.length === 0);
+            clearBtn.classList.toggle('hidden', files.length === 0);
+            downloadAllBtn.classList.toggle('hidden', processedFiles.length === 0);
+        }
+
+        // Converter todas as imagens
+        convertAllBtn.addEventListener('click', function() {
+            const previewItems = previewContainer.querySelectorAll('.preview-item');
+            
+            previewItems.forEach(item => {
+                const filename = item.dataset.filename;
+                const file = files.find(f => f.name === filename);
+                
+                if (file) {
+                    convertImage(file, item);
+                }
+            });
+        });
+
+        // Baixar todas as imagens
+        downloadAllBtn.addEventListener('click', function() {
+            if (processedFiles.length === 0) return;
+            
+            // Para poucos arquivos, podemos baixar um por um
+            if (processedFiles.length <= 5) {
+                processedFiles.forEach(file => {
+                    const link = document.createElement('a');
+                    link.href = file.url;
+                    link.download = file.name;
+                    link.click();
+                });
+            } else {
+                // Para muitos arquivos, precisamos fazer download sequencial
+                alert("Para baixar muitos arquivos de uma vez, cada navegador tem um comportamento diferente. Você pode baixar individualmente clicando no link de cada imagem.");
+                
+                // Baixar um por um com intervalo para evitar bloqueio do navegador
+                let index = 0;
+                const downloadNext = () => {
+                    if (index < processedFiles.length) {
+                        const file = processedFiles[index];
+                        const link = document.createElement('a');
+                        link.href = file.url;
+                        link.download = file.name;
+                        link.click();
+                        
+                        index++;
+                        setTimeout(downloadNext, 1000); // Intervalo de 1 segundo
+                    }
+                };
+                
+                downloadNext();
+            }
+        });
+
+        // Limpar tudo
+        clearBtn.addEventListener('click', function() {
+            // Limpar arrays
+            files = [];
+            processedFiles = [];
+            
+            // Limpar visualização
+            previewContainer.innerHTML = '';
+            
+            updateUI();
+        });
+    </script>
+</body>
+</html>
