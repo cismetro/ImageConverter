@@ -445,10 +445,6 @@
             img.onload = function() {
                 progressBar.style.width = '60%';
                 
-                // Configurar o canvas
-                // canvas.width = img.width;
-                // canvas.height = img.height;
-                
 				
 				 // Configurar o canvas
                 canvas.width = 1872;
@@ -458,7 +454,8 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
                 // Desenhar a imagem
-                ctx.drawImage(img, 0, 0);
+                // ctx.drawImage(img, 0, 0);
+				ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 
                 // Converter para o formato selecionado
                 canvas.toBlob(function(blob) {
